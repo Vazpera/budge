@@ -4,12 +4,7 @@ A terminal user interface for managing budgets. Still a huge work in progress
 # Installation
 Installation is simple, all sqlx snobbiness is handled through build.rs
 ```bash
-git clone https://github.com/vazpera/budge
-cd budge
-cargo build
-mv target/release/budge ~/.local/bin/
-# to initialize the db
-budge load 1
+cargo install --git https://github.com/vazpera/budge
 ```
 # Usage
 >[!INFO] `budge` run by itself will display help!
