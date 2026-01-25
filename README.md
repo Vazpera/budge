@@ -8,6 +8,8 @@ git clone https://github.com/vazpera/budge
 cd budge
 cargo build
 mv target/release/budge ~/.local/bin/
+# to initialize the db
+budge load 1
 ```
 # Usage
 >[!INFO] `budge` run by itself will display help!
