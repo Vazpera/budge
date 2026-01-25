@@ -1,5 +1,7 @@
 mod app;
 mod ui;
+use std::path::Path;
+
 use ratatui::{init, restore};
 use sqlx::sqlite::SqliteConnectOptions;
 use sqlx::{migrate, Pool, Sqlite, SqlitePool};
@@ -50,7 +52,13 @@ struct Args {
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args = Args::parse();
     let proj_dir = env!("CARGO_MANIFEST_DIR");
-    let db_url = format!("sqlite://{}/test.db", proj_dir);
+    let db_url = format!("sqlite://{}/budge.db", proj_dir);
+    let db_path = format!("{}/budge.db", proj_dir);
+    let mut existed = true;
+    if !Path::new(&db_path).exists() {
+        std::fs::File::create(db_path);
+        existed = false;
+    }
     let pool = create_database_pool(&db_url).await?;
 
     match args.mode {

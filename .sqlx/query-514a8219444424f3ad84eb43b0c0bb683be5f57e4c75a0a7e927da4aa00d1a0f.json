@@ -1,6 +1,6 @@
 {
   "db_name": "SQLite",
-  "query": "SELECT * FROM payments WHERE budget_id = ?",
+  "query": "SELECT * FROM payments WHERE budget_id = ? ORDER BY day_of DESC",
   "describe": {
     "columns": [
       {
@@ -40,5 +40,5 @@
       false
     ]
   },
-  "hash": "62d784ef7af4aefae5a831970b8d0992e1f3358642c0cc14f0cabde5d5a6ecf2"
+  "hash": "514a8219444424f3ad84eb43b0c0bb683be5f57e4c75a0a7e927da4aa00d1a0f"
 }

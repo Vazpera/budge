@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "INSERT INTO budget (amount, month) VALUES (?,?)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 2
+    },
+    "nullable": []
+  },
+  "hash": "3931d9a04c2ec1bbfb1449bd370e465fb21ccfd4c128dd865011e8c9693b59a6"
+}
