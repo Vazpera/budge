@@ -1,7 +1,8 @@
 mod app;
 mod ui;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
+use dirs::data_dir;
 use ratatui::{init, restore};
 use sqlx::sqlite::SqliteConnectOptions;
 use sqlx::{migrate, Pool, Sqlite, SqlitePool};
@@ -51,14 +52,14 @@ struct Args {
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args = Args::parse();
-    let proj_dir = env!("CARGO_MANIFEST_DIR");
-    let db_url = format!("sqlite://{}/budge.db", proj_dir);
-    let db_path = format!("{}/budge.db", proj_dir);
-    let mut existed = true;
-    if !Path::new(&db_path).exists() {
-        std::fs::File::create(db_path);
-        existed = false;
+    let mut db_path:PathBuf = data_dir().unwrap();
+    db_path.push("budge.db");
+    let db_url = format!("{}", db_path.to_string_lossy());
+
+    if !db_path.exists() {
+        std::fs::File::create(db_path.clone())?;
     }
+
     let pool = create_database_pool(&db_url).await?;
 
     match args.mode {
@@ -75,6 +76,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             println!("Budget created successfully")
         }
         Mode::List => {
+            println!("Hosted at: {}", db_path.to_string_lossy());
             let budgets = query_as!(crate::app::Budget, "SELECT * FROM budget").fetch_all(&pool).await?;
             for budget in budgets {
                 println!("{}: {} - {}", budget.id, budget.amount, budget.month);
