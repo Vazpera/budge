@@ -1,0 +1,10 @@
+[package]
+name = "budge"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+ratatui = "0.30.0"
+sqlx = { version = "0.8.6", features = ["runtime-tokio", "sqlite"] }
+tokio = { version = "1.49.0", features = ["full"] }
+tokio-macros = { version = "0.2.0-alpha.6" }
