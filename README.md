@@ -21,7 +21,7 @@ Use the `budge load` subcommand to open the UI. Make sure to supply the ID
 ```bash
 budge load <id>
 ```
-## Delete a budge
+## Delete a budget
 ```bash
 budge remove <id>
 ```
