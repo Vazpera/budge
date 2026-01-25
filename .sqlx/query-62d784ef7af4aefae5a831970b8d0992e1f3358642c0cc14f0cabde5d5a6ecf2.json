@@ -1,0 +1,44 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT * FROM payments WHERE budget_id = ?",
+  "describe": {
+    "columns": [
+      {
+        "name": "id",
+        "ordinal": 0,
+        "type_info": "Integer"
+      },
+      {
+        "name": "amount",
+        "ordinal": 1,
+        "type_info": "Float"
+      },
+      {
+        "name": "kind",
+        "ordinal": 2,
+        "type_info": "Text"
+      },
+      {
+        "name": "budget_id",
+        "ordinal": 3,
+        "type_info": "Integer"
+      },
+      {
+        "name": "day_of",
+        "ordinal": 4,
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "62d784ef7af4aefae5a831970b8d0992e1f3358642c0cc14f0cabde5d5a6ecf2"
+}

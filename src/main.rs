@@ -1,24 +1,12 @@
 mod app;
 mod ui;
-use app::Payment;
-use ratatui::widgets::{Scrollbar, ScrollbarState};
 use ratatui::{init, restore};
 use sqlx::sqlite::SqliteConnectOptions;
 use sqlx::{migrate, Pool, Sqlite, SqlitePool};
-use sqlx::{query, query_as, sqlite::SqlitePoolOptions};
+use sqlx::{query, query_as};
 
-use ratatui::{
-    backend::{Backend, CrosstermBackend},
-    crossterm::{
-        event::{self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode, KeyEventKind},
-        execute,
-        terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
-    },
-    Terminal,
-};
-use std::{error::Error, io};
 
-use crate::app::{App, Budget};
+use crate::app::App;
 pub type DbPool = Pool<Sqlite>;
 
 pub async fn create_database_pool(options: &str) -> Result<DbPool, Box<dyn std::error::Error>> {
@@ -30,18 +18,24 @@ pub async fn create_database_pool(options: &str) -> Result<DbPool, Box<dyn std::
 
     Ok(pool)
 }
-use clap::{Parser, Subcommand, ValueEnum};
+use clap::{Parser, Subcommand};
 
 #[derive(Subcommand, Clone, Debug)]
 enum Mode {
+    /// Add a new budget
     Create {
         amount: f64,
         month: String
     },
+    /// Remove a budget, supplying the ID
+    Remove {
+        id: i64,
+    },
+    /// List all budgets
     List,
+    /// Load a budget
     Load {
-        #[arg(short, long)]
-        budget_id: Option<i64>,
+        budget_id: i64,
     },
 }
 
@@ -55,8 +49,9 @@ struct Args {
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args = Args::parse();
-    let db_url = "sqlite:///home/vazpera/.local/share/test.db";
-    let pool = create_database_pool(db_url).await?;
+    let proj_dir = env!("CARGO_MANIFEST_DIR");
+    let db_url = format!("sqlite://{}/test.db", proj_dir);
+    let pool = create_database_pool(&db_url).await?;
 
     match args.mode {
         Mode::Load { budget_id } => {
@@ -68,14 +63,18 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             res?;
         }
         Mode::Create { amount, month } => {
-            let x = query!("INSERT INTO budget (amount, month) VALUES (?, ?)", amount, month).execute(&pool).await?;
-            println!("{x:?}")
+            query!("INSERT INTO budget (amount, month) VALUES (?, ?)", amount, month).execute(&pool).await?;
+            println!("Budget created successfully")
         }
         Mode::List => {
             let budgets = query_as!(crate::app::Budget, "SELECT * FROM budget").fetch_all(&pool).await?;
             for budget in budgets {
-                println!("{:?}", budget);
+                println!("{}: {} - {}", budget.id, budget.amount, budget.month);
             }
+        }
+        Mode::Remove { id } => {
+            query!("DELETE FROM budget WHERE id = ?", id).execute(&pool).await?;
+            println!("Removed budget with id {id} successfully")
         }
     }
 

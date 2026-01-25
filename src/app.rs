@@ -1,28 +1,19 @@
+use itertools::multiunzip;
 use ratatui::{
-    crossterm::event::{self, Event, KeyCode},
-    layout::{Alignment, Margin},
-    macros::{horizontal, vertical},
-    prelude::Backend,
-    text::ToLine,
-    widgets::{Padding, ScrollbarOrientation, ScrollbarState},
-    Terminal,
+    Terminal, crossterm::event::{self, Event, KeyCode}, layout::{Alignment, Margin}, macros::{horizontal, row, vertical}, prelude::Backend, text::ToLine, widgets::{Padding, Row, ScrollbarOrientation, ScrollbarState, Table, TableState}
 };
 use ratatui::{
     layout::{Constraint, Direction, Layout, Rect},
     style::{Color, Style, Stylize},
-    text::{Line, Span, Text},
-    widgets::{Block, Borders, Clear, Gauge, List, ListItem, Paragraph, Scrollbar, Wrap},
+    text::Line,
+    widgets::{Block, Borders, Gauge, Paragraph, Scrollbar},
     Frame,
 };
-use sqlx::{query, query_as, Pool, Sqlite, Type};
+
+use sqlx::{query, query_as, Pool, Sqlite};
 use tui_input::{backend::crossterm::EventHandler, Input};
 
-use crate::ui;
-
-#[derive(Debug)]
-pub enum Screen {
-    PaymentLogger,
-}
+#[allow(dead_code)]
 #[derive(Default, Debug)]
 pub struct Payment {
     pub id: i64,
@@ -38,13 +29,6 @@ pub struct Budget {
     pub month: String,
 }
 
-pub struct PaymentBuilder {
-    pub id: String,
-    pub amount: String,
-    pub budget_id: String,
-    pub kind: String,
-    pub day_of: String,
-}
 #[derive(PartialEq, Eq, Debug, Clone, Copy)]
 pub enum InputMode {
     Normal,
@@ -75,15 +59,12 @@ pub struct App {
 }
 
 impl App {
-    pub fn new(pool: Pool<Sqlite>, id: Option<i64>) -> App {
+    pub fn new(pool: Pool<Sqlite>, id: i64) -> App {
         App {
             pool,
             scroll: usize::default(),
             scroll_state: ScrollbarState::default(),
-            current_budget_id: match id {
-                Some(j) => j,
-                None => 1
-            },
+            current_budget_id: id,
             payments: Vec::new(),
             budget: None,
             payment_input: (Input::default(), Input::default()),
@@ -259,11 +240,11 @@ impl App {
                         }
                         KeyCode::Char('q') => return Ok(()),
                         KeyCode::Char('j') => {
-                            self.scroll = self.scroll.saturating_add(1);
+                            self.scroll = self.scroll.saturating_add(1).clamp(0, self.payments.len() - 1);
                             self.scroll_state = self.scroll_state.position(self.scroll)
                         }
                         KeyCode::Char('k') => {
-                            self.scroll = self.scroll.saturating_sub(1);
+                            self.scroll = self.scroll.saturating_sub(1).clamp(0, self.payments.len() - 1);
                             self.scroll_state = self.scroll_state.position(self.scroll)
                         }
                         KeyCode::Char('a') => {
@@ -291,19 +272,19 @@ impl App {
 
         let in_type = Paragraph::new(self.payment_input.0.value()).block(
             Block::bordered()
-                .title("type")
-                .style(match (self.location, self.mode) {
+                .title(" kind ")
+                .title_style(match (self.location, self.mode) {
                     (InputLocation::Type, InputMode::Editing) => Style::default().yellow(),
-                    (_, _) => Style::default(),
-                }),
+                    (_, _) => Style::default().white(),
+                }).border_style(Style::default().red())
         );
         let in_amount = Paragraph::new(self.payment_input.1.value()).block(
             Block::bordered()
-                .title("amount")
-                .style(match (self.location, self.mode) {
+                .title(" amount ")
+                .title_style(match (self.location, self.mode) {
                     (InputLocation::Amount, InputMode::Editing) => Style::default().yellow(),
-                    (_, _) => Style::default(),
-                }),
+                    (_, _) => Style::default().white(),
+                }).border_style(Style::default().red())
         );
         if self.mode == InputMode::Editing {
             match self.location {
@@ -325,7 +306,7 @@ impl App {
     }
     pub fn render_deletion(&self, frame: &mut Frame, area: Rect) {
         let in_del =
-            Paragraph::new(self.deletion_id.value()).block(Block::bordered().title("deleting id:"));
+            Paragraph::new(self.deletion_id.value()).block(Block::bordered().title(" deleting id: "));
 
         let input_scroll = self
             .deletion_id
@@ -337,9 +318,9 @@ impl App {
     }
     pub fn render_adding_budget(&self, frame: &mut Frame, area: Rect) {
         let in_amount = Paragraph::new(self.new_budget.0.value())
-            .block(Block::bordered().title("budget amount"));
+            .block(Block::bordered().title(" budget amount ".white()).border_style(Style::default().red()));
         let in_month = Paragraph::new(self.new_budget.1.value())
-            .block(Block::bordered().title("budget month"));
+            .block(Block::bordered().title(" budget month ".white()).border_style(Style::default().red()));
 
         let input_scroll = self
             .new_budget
@@ -372,7 +353,7 @@ impl App {
             None => Budget::default(),
         };
         let ratio = match self.budget.clone() {
-            Some(b) => total_payout / b.amount,
+            Some(b) => total_payout.abs() / b.amount,
             None => 1.0,
         };
         let budget_visualizer = Gauge::default()
@@ -381,7 +362,7 @@ impl App {
                     .title(" budget ".fg(Color::White))
                     .border_style(Style::default().fg(Color::Red)),
             )
-            .ratio(ratio)
+            .ratio(ratio.abs().clamp(0.0, 1.0))
             .gauge_style(match total_payout.signum() {
                 0.0 => Style::default(),
                 1.0 => {
@@ -395,7 +376,7 @@ impl App {
                 _ => unreachable!(),
             })
             .label(match self.budget.clone() {
-                Some(b) => format!("{}/{} $", total_payout.abs(), budget.amount.abs()).black(),
+                Some(_b) => format!("{:.2}/{} $", total_payout, budget.amount.abs()).black(),
                 None => "No budget loaded!".black(),
             });
         frame.render_widget(budget_visualizer, area);
@@ -409,40 +390,53 @@ impl App {
         frame.render_widget(main_info, area);
     }
     pub fn render_payments(&self, frame: &mut Frame, area: Rect) {
-        let (type_lines, payment_lines): (Vec<Line>, Vec<Line>) = self
-            .payments
-            .iter()
-            .map(|x| (format!("{} {}", x.id, x.kind), x.amount.to_line()))
-            .map(|x| (Line::from(x.0), x.1))
-            .collect();
+        let (ids, kinds, amounts, days): (Vec<_>, Vec<_>, Vec<_>, Vec<_>) =
+            multiunzip(self.payments.iter().map(|x| {
+                (
+                    x.id.to_string(),
+                    x.kind.clone(),
+                    x.amount.to_string(),
+                    x.day_of.clone(),
+                )
+            }));
 
-        let types = Paragraph::new(type_lines.clone())
-            .block(
-                Block::bordered()
-                    .title(" payments ".fg(Color::White))
-                    .border_style(Style::default().fg(Color::Red))
-                    .padding(Padding::new(1, 1, 0, 0)),
-            )
-            .scroll((self.scroll as u16, 0));
-        let payment_amounts = Paragraph::new(payment_lines.clone())
-            .block(
-                Block::bordered()
-                    .title(" payments ".fg(Color::White))
-                    .border_style(Style::default().fg(Color::Red))
-                    .padding(Padding::new(1, 1, 0, 0)),
-            )
-            .alignment(Alignment::Right)
-            .scroll((self.scroll as u16, 0));
+        let rows = self.payments.iter().enumerate().map(|(i, x)| {
+            let s_1 = x.id.to_string();
+            let s_2 = x.kind.clone();
+            let s_3 = x.amount.to_string();
+            let s_4 = x.day_of.clone();
+
+            Row::new([s_1, s_2, s_3, s_4]).style(match i % 2 {
+                0 => Style::default().on_black(),
+                1 => Style::default(),
+                _ => unreachable!(),
+            })
+        });
+        let table = Table::new(
+            rows.clone(),
+            [
+                Constraint::Min(
+                    ids.iter().max().unwrap_or(&"".to_string()).len() as u16 + 1,
+                ),
+                Constraint::Min(
+                    kinds.iter().max().unwrap_or(&"".to_string()).len() as u16 + 1,
+                ),
+                Constraint::Min(
+                    amounts.iter().max().unwrap_or(&"".to_string()).len() as u16 + 1,
+                ),
+                Constraint::Min(
+                    days.iter().max().unwrap_or(&"".to_string()).len() as u16 + 1,
+                ),
+            ]
+        ).block(Block::bordered().title(" payments ".white()).border_style(Style::default().red()));
 
         let scrollbar = Scrollbar::new(ScrollbarOrientation::VerticalRight)
             .begin_symbol(Some("↑"))
             .end_symbol(Some("↓"))
             .style(Style::default().fg(Color::Gray));
-        let mut scr = self.scroll_state.content_length(type_lines.len());
+        let mut scr = self.scroll_state.content_length(rows.len());
 
-        frame.render_widget(payment_amounts, area);
-        frame.render_widget(types, area);
-
+        frame.render_stateful_widget(table, area, &mut TableState::default().with_offset(self.scroll));
         frame.render_stateful_widget(
             scrollbar,
             area.inner(Margin {
@@ -451,6 +445,7 @@ impl App {
             }),
             &mut scr,
         );
+
     }
     pub fn draw(&mut self, frame: &mut Frame) {
         let layout = Layout::default()
@@ -458,7 +453,7 @@ impl App {
             .constraints([Constraint::Fill(1), Constraint::Min(10)])
             .split(frame.area());
 
-        self.render_main(frame, layout[0]);
+        // self.render_main(frame, layout[0]);
 
         let right_bar = Layout::default()
             .direction(Direction::Vertical)
@@ -467,7 +462,7 @@ impl App {
                 Constraint::Min(3),
                 Constraint::Percentage(100),
             ])
-            .split(layout[1]);
+            .split(frame.area());
 
         self.render_budget(frame, right_bar[0]);
         self.render_add_payment_textbox(frame, right_bar[1]);

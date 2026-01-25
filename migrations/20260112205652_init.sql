@@ -14,6 +14,7 @@ CREATE TABLE IF NOT EXISTS payments  (
 		CONSTRAINT to_budget
 				FOREIGN KEY (budget_id)
 				REFERENCES budget (id)
+				ON DELETE CASCADE
 
 );
 
