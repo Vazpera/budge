@@ -1,11 +1,10 @@
 use itertools::multiunzip;
 use ratatui::{
-    Terminal, crossterm::event::{self, Event, KeyCode}, layout::{Alignment, Margin}, macros::{horizontal, row, vertical}, prelude::Backend, text::ToLine, widgets::{Padding, Row, ScrollbarOrientation, ScrollbarState, Table, TableState}
+    Terminal, crossterm::event::{self, Event, KeyCode}, layout::Margin, macros::{horizontal, vertical}, prelude::Backend, widgets::{Row, ScrollbarOrientation, ScrollbarState, Table, TableState}
 };
 use ratatui::{
     layout::{Constraint, Direction, Layout, Rect},
     style::{Color, Style, Stylize},
-    text::Line,
     widgets::{Block, Borders, Gauge, Paragraph, Scrollbar},
     Frame,
 };
@@ -381,7 +380,7 @@ impl App {
             });
         frame.render_widget(budget_visualizer, area);
     }
-    pub fn render_main(&self, frame: &mut Frame, area: Rect) {
+    pub fn _render_main(&self, frame: &mut Frame, area: Rect) {
         let main_info = Block::default()
             .title(" info ".fg(Color::White))
             .title_alignment(ratatui::layout::HorizontalAlignment::Left)
@@ -448,7 +447,7 @@ impl App {
 
     }
     pub fn draw(&mut self, frame: &mut Frame) {
-        let layout = Layout::default()
+        let _layout = Layout::default()
             .direction(Direction::Horizontal)
             .constraints([Constraint::Fill(1), Constraint::Min(10)])
             .split(frame.area());

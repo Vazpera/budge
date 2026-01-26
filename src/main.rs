@@ -1,6 +1,5 @@
 mod app;
-mod ui;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 use dirs::data_dir;
 use ratatui::{init, restore};
