@@ -2,6 +2,8 @@
 name = "budge"
 version = "0.1.0"
 edition = "2024"
+description = "A budgeting app written in Rust"
+license = "GNU GPLv3"
 
 [dependencies]
 clap = { version = "4.5.54", features = ["derive"] }
